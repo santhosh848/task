@@ -1,0 +1,79 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using Microsoft.SharePoint;
+using Microsoft.SharePoint.Administration;
+using System.Data;
+using System.IO;
+namespace CustomTimerJob
+{
+    public class CompletedProjectsJob : SPJobDefinition
+    {
+        public const string jobName = "CompletedProjectsJob";
+        public CompletedProjectsJob() : base() { }
+        public CompletedProjectsJob(SPWebApplication webApplication)
+            : base(jobName, webApplication, null,SPJobLockType.Job)
+        {
+            Title = "Completed Projects Job";
+        }
+        public override void Execute(Guid targetInstanceId)
+        {
+            SPWebApplication webApp = this.Parentas SPWebApplication;
+            SPWeb web = webApp.Sites["/sites/test"].RootWeb;
+            SPList list = web.Lists.TryGetList("Completed Projects");
+            SPListItem items;
+            bool flag =true;
+            SPListItemCollection itemColl = list.Items;
+            var query =new SPSiteDataQuery();
+            query.Lists = "<Lists BaseType='0' />";
+            query.ViewFields = "<FieldRef Name='Title' Nullable='TRUE' />" +
+                               "<FieldRef Name='ProjectStatus' Nullable='TRUE' />" +
+                               "<FieldRef Name='ProjectID' Nullable='TRUE' />" +
+                               "<FieldRef Name='FileRef' Nullable='TRUE' />";
+            query.Query = "<Where>" +
+                                "<Eq>" +
+                                    "<FieldRef Name='ProjectStatus' />" +
+                                    "<Value Type='Choice'>Completed</Value>" +
+                                "</Eq>" +
+                           "</Where>";
+            query.Webs = "<Webs Scope='SiteCollection' />";
+            DataTable dt = web.GetSiteData(query);
+            foreach (DataRow row in dt.Rows)
+            {
+                items = list.Items.Add();
+                if (itemColl.Count != 0)
+                {
+                    foreach (SPListItem item in itemColl)
+                    {
+                        if (item["ProjectID"].ToString() == row["ProjectID"].ToString())
+                        {
+                            flag = false;
+                            break;
+                        }
+                        else
+                        {
+                            flag = true;
+                        }
+                    }
+                    if (flag ==true)
+                    {
+                        items["Title"] = row["Title"].ToString();
+                        items["ProjectStatus"] = row["ProjectStatus"].ToString();
+                        items["ProjectID"] = row["ProjectID"];
+                        items.Update();
+                        list.Update();
+                    }
+                }
+                else
+                {
+                    items["Title"] = row["Title"].ToString();
+                    items["ProjectStatus"] = row["ProjectStatus"].ToString();
+                    items["ProjectID"] = row["ProjectID"];
+                    items.Update();
+                    list.Update();
+                }
+            }
+        }
+    }
+}
